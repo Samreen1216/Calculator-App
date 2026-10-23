@@ -7,6 +7,10 @@ import 'package:calculator/controllers/calculator_controller.dart';
 import 'package:calculator/models/calculation.dart';
 import 'package:calculator/models/unit_converter.dart';
 import 'package:calculator/services/calculator_engine.dart';
+import 'package:calculator/screens/splash_screen.dart';
+import 'package:calculator/widgets/calculator_button.dart';
+import 'package:calculator/widgets/history_sheet.dart';
+import 'package:calculator/widgets/tab_selector.dart';
 
 void main() {
   group('CalculatorEngine Tests', () {
@@ -433,6 +437,188 @@ void main() {
       expect(find.text('Clear All History?'), findsNothing);
     });
 
+    testWidgets('HistorySheet close button dismisses bottom sheet cleanly without swiping', (WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 2.75;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(const CalculatorApp());
+      await tester.pumpAndSettle();
+
+      // Open history sheet
+      await tester.tap(find.byTooltip('History'));
+      await tester.pumpAndSettle();
+
+      // Verify history sheet is open with title & Close button
+      expect(find.text('History'), findsOneWidget);
+      expect(find.byTooltip('Close'), findsOneWidget);
+
+      // Tap Close button
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+
+      // History sheet is cleanly dismissed
+      expect(find.text('History'), findsNothing);
+    });
+
+    testWidgets('HistorySheet supports copy result and delete with undo', (WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 2.75;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(const CalculatorApp());
+      await tester.pumpAndSettle();
+
+      // Calculate 4 × 5 = 20
+      await tester.tap(find.text('4'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('×'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('5'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('='));
+      await tester.pumpAndSettle();
+
+      // Open history sheet
+      await tester.tap(find.byTooltip('History'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('4×5'), findsWidgets);
+      expect(find.byTooltip('Copy result'), findsOneWidget);
+      expect(find.byTooltip('Delete'), findsOneWidget);
+
+      // Tap copy result
+      await tester.tap(find.byTooltip('Copy result'));
+      await tester.pumpAndSettle();
+      expect(find.text('Copied: 20'), findsOneWidget);
+
+      // Dismiss SnackBar before tapping delete
+      ScaffoldMessenger.of(tester.element(find.byType(Scaffold).first)).hideCurrentSnackBar();
+      await tester.pumpAndSettle();
+
+      // Tap delete
+      await tester.tap(find.byTooltip('Delete'));
+      await tester.pumpAndSettle();
+      expect(find.text('Calculation deleted'), findsOneWidget);
+
+      // Tap Undo in SnackBar
+      await tester.tap(find.text('Undo'), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(find.text('4×5'), findsWidgets);
+    });
+
+    testWidgets('Converter saves conversion history and shows it when history icon is clicked', (WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 2.75;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(const CalculatorApp());
+      await tester.pumpAndSettle();
+
+      // Switch to Converter mode
+      await tester.tap(find.text('Converter'));
+      await tester.pumpAndSettle();
+
+      // Clear initial '1'
+      await tester.tap(find.widgetWithText(CalculatorButton, 'AC'));
+      await tester.pumpAndSettle();
+
+      // Type 5 in Converter (5 m -> ft)
+      await tester.tap(find.widgetWithText(CalculatorButton, '5'));
+      await tester.pumpAndSettle();
+
+      // Open history from Converter screen
+      await tester.tap(find.byTooltip('History'));
+      await tester.pumpAndSettle();
+
+      // Conversion history should be visible
+      expect(find.text('5 m'), findsWidgets);
+      expect(find.text('Length'), findsWidgets);
+
+      // Close history
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('Tapping calculation from history while on Converter screen switches to calculator and displays it', (WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 2.75;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(const CalculatorApp());
+      await tester.pumpAndSettle();
+
+      // Calculate 7 × 8 = 56 in Standard mode
+      await tester.tap(find.widgetWithText(CalculatorButton, '7'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(CalculatorButton, '×'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(CalculatorButton, '8'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(CalculatorButton, '='));
+      await tester.pumpAndSettle();
+
+      // Switch to Converter mode
+      await tester.tap(find.text('Converter'));
+      await tester.pumpAndSettle();
+
+      // Open history from Converter screen
+      await tester.tap(find.byTooltip('History'));
+      await tester.pumpAndSettle();
+
+      // Tap the calculation '7×8'
+      await tester.tap(find.text('7×8'));
+      await tester.pumpAndSettle();
+
+      // The app should switch back to calculator display showing '7×8' and '56'
+      expect(find.text('7×8'), findsOneWidget);
+      expect(find.text('56'), findsOneWidget);
+    });
+
+    testWidgets('Delete icon removes item immediately from bottom sheet', (WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 2.75;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(const CalculatorApp());
+      await tester.pumpAndSettle();
+
+      // Calculate 3 + 4 = 7
+      await tester.tap(find.widgetWithText(CalculatorButton, '3'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(CalculatorButton, '+'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(CalculatorButton, '4'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(CalculatorButton, '='));
+      await tester.pumpAndSettle();
+
+      // Open history sheet
+      await tester.tap(find.byTooltip('History'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('3+4'), findsWidgets);
+
+      // Tap Delete icon on the card
+      await tester.tap(find.byTooltip('Delete'));
+      await tester.pumpAndSettle();
+
+      // The card is removed immediately from HistorySheet and 'No history yet' is shown
+      expect(
+        find.descendant(
+          of: find.byType(HistorySheet),
+          matching: find.text('3+4'),
+        ),
+        findsNothing,
+      );
+      expect(find.text('No history yet'), findsOneWidget);
+    });
+
     testWidgets('Converter routes physical keyboard input', (WidgetTester tester) async {
       tester.view.physicalSize = const Size(1080, 2400);
       tester.view.devicePixelRatio = 2.75;
@@ -481,6 +667,281 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.text('Length'), findsOneWidget);
+    });
+  });
+
+  group('SplashScreen Tests', () {
+    testWidgets('SplashScreen renders title, icon, and mode badges', (WidgetTester tester) async {
+      bool finished = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SplashScreen(
+            duration: const Duration(seconds: 1),
+            onFinish: () => finished = true,
+          ),
+        ),
+      );
+
+      // Verify splash elements are present
+      expect(find.text('Calculator'), findsOneWidget);
+      expect(find.text('Standard'), findsOneWidget);
+      expect(find.text('Scientific'), findsOneWidget);
+      expect(find.text('Converter'), findsOneWidget);
+      expect(find.byType(Image), findsOneWidget);
+      expect(find.byType(LinearProgressIndicator), findsOneWidget);
+
+      // Advance time by 1 second to complete splash
+      await tester.pump(const Duration(seconds: 1));
+      expect(finished, isTrue);
+    });
+
+    testWidgets('CalculatorApp with showSplash: true shows splash then transitions to calculator', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        const CalculatorApp(
+          showSplash: true,
+          splashDuration: Duration(milliseconds: 200),
+        ),
+      );
+
+      // Immediately after first pump, splash should be visible
+      expect(find.byKey(const ValueKey('splash_view')), findsOneWidget);
+
+      // Advance through splash animation and crossfade transition
+      await tester.pump(const Duration(milliseconds: 250));
+      await tester.pumpAndSettle();
+
+      // Calculator screen should now be visible
+      expect(find.byKey(const ValueKey('calculator_view')), findsOneWidget);
+      expect(find.text('Calculator'), findsOneWidget);
+    });
+
+    testWidgets('SplashScreen interactive mode chips switch modes and update description', (WidgetTester tester) async {
+      CalculatorMode selectedMode = CalculatorMode.standard;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SplashScreen(
+            duration: const Duration(seconds: 10),
+            onFinish: () {},
+            onModeSelected: (mode) => selectedMode = mode,
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // Initial tagline is for Standard
+      expect(find.text('Clean arithmetic • Instant percentage'), findsOneWidget);
+
+      // Tap Scientific chip
+      await tester.tap(find.text('Scientific'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(selectedMode, equals(CalculatorMode.scientific));
+      expect(find.text('Trigonometry • Powers • Logarithms'), findsOneWidget);
+
+      // Tap Converter chip
+      await tester.tap(find.text('Converter'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(selectedMode, equals(CalculatorMode.converter));
+      expect(find.text('Length • Weight • Speed • Temperature'), findsOneWidget);
+
+      // Tap Standard chip back
+      await tester.tap(find.text('Standard'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(selectedMode, equals(CalculatorMode.standard));
+      expect(find.text('Clean arithmetic • Instant percentage'), findsOneWidget);
+    });
+
+    testWidgets('SplashScreen Skip button finishes immediately without waiting for duration', (WidgetTester tester) async {
+      bool finished = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SplashScreen(
+            duration: const Duration(seconds: 30),
+            onFinish: () => finished = true,
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(finished, isFalse);
+      expect(find.text('Skip'), findsOneWidget);
+
+      await tester.tap(find.text('Skip'));
+      await tester.pump();
+      expect(finished, isTrue);
+    });
+
+    testWidgets('SplashScreen Tap to start calculating finishes immediately', (WidgetTester tester) async {
+      bool finished = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SplashScreen(
+            duration: const Duration(seconds: 30),
+            onFinish: () => finished = true,
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(finished, isFalse);
+      expect(find.text('Tap to start calculating'), findsOneWidget);
+
+      await tester.tap(find.text('Tap to start calculating'));
+      await tester.pump();
+      expect(finished, isTrue);
+    });
+
+    testWidgets('SplashScreen tapping app icon triggers easter egg reaction bubble', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SplashScreen(
+            duration: const Duration(seconds: 10),
+            onFinish: () {},
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // Tap icon
+      await tester.tap(find.byType(Image));
+      await tester.pump(const Duration(milliseconds: 150));
+
+      // Easter egg popup should be revealed
+      expect(
+        find.byWidgetPredicate((widget) =>
+            widget is Text &&
+            (widget.data == 'π ≈ 3.14159' ||
+             widget.data == '= 42' ||
+             widget.data == 'e ≈ 2.71828' ||
+             widget.data == 'φ ≈ 1.618')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('SplashScreen math trivia card rotates trivia fact on tap', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SplashScreen(
+            duration: const Duration(seconds: 10),
+            onFinish: () {},
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // Initial trivia is Euler's identity
+      expect(find.text("Euler's identity: e^(iπ) + 1 = 0"), findsOneWidget);
+
+      // Tap the trivia card
+      await tester.tap(find.text("Euler's identity: e^(iπ) + 1 = 0"));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // Next trivia fact appears
+      expect(find.text('2520 is divisible by all numbers 1 through 10'), findsOneWidget);
+    });
+
+    testWidgets('SplashScreen screen tap and drag spawns touch bursts cleanly', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SplashScreen(
+            duration: const Duration(seconds: 10),
+            onFinish: () {},
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // Tap screen at arbitrary location
+      await tester.tapAt(const Offset(150, 200));
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // Drag across screen
+      final gesture = await tester.startGesture(const Offset(100, 300));
+      await gesture.moveBy(const Offset(50, 50));
+      await tester.pump(const Duration(milliseconds: 50));
+      await gesture.up();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('CalculatorApp opens directly in selected mode from splash screen', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        const CalculatorApp(
+          showSplash: true,
+          splashDuration: Duration(seconds: 10),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // Tap Scientific chip on splash
+      await tester.tap(find.text('Scientific'));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // Tap Skip to enter immediately
+      await tester.tap(find.text('Skip'));
+      await tester.pumpAndSettle();
+
+      // Should now be on Calculator screen in scientific mode (sin function visible)
+      expect(find.byKey(const ValueKey('calculator_view')), findsOneWidget);
+      expect(find.text('sin'), findsOneWidget);
+    });
+
+    testWidgets('SplashScreen default duration does not disappear within 1 second and waits 5s', (WidgetTester tester) async {
+      bool finished = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SplashScreen(
+            onFinish: () => finished = true,
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // Advance by 1 second - should NOT disappear
+      await tester.pump(const Duration(seconds: 1));
+      expect(finished, isFalse);
+
+      // Advance by another 2 seconds (total 3s) - still active
+      await tester.pump(const Duration(seconds: 2));
+      expect(finished, isFalse);
+
+      // Advance by another 1.5 seconds (total 4.5s) - still active
+      await tester.pump(const Duration(milliseconds: 1500));
+      expect(finished, isFalse);
+
+      // Advance past 5s total duration
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(finished, isTrue);
+    });
+
+    testWidgets('SplashScreen user interaction extends timer to prevent premature disappearance', (WidgetTester tester) async {
+      bool finished = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SplashScreen(
+            duration: const Duration(seconds: 5),
+            onFinish: () => finished = true,
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // Advance 4 seconds (almost finished if duration is 5s)
+      await tester.pump(const Duration(seconds: 4));
+      expect(finished, isFalse);
+
+      // User interacts: tap mode chip
+      await tester.tap(find.text('Scientific'));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Advance another 3 seconds (total 7.1s from start)
+      // Without interaction extension, it would have already vanished at 5s!
+      await tester.pump(const Duration(seconds: 3));
+      expect(finished, isFalse);
+
+      // Advance past the 5s extension timeout
+      await tester.pump(const Duration(seconds: 2));
+      expect(finished, isTrue);
     });
   });
 }

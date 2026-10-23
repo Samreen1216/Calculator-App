@@ -31,8 +31,15 @@ class MemoryBar extends StatelessWidget {
         Colors.grey.withValues(alpha: 0.4);
     final accentColor = calcTheme?.equalsButtonColor ?? const Color(0xFF347D78);
 
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isShort = screenHeight < 500;
+    final barHeight = isShort ? 28.0 : 36.0;
+    final barFontSize = isShort ? 11.5 : 13.0;
+    final vPadding = isShort ? 2.0 : 4.0;
+    final spacing = isShort ? 4.0 : 6.0;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: EdgeInsets.symmetric(vertical: vPadding),
       child: Row(
         children: [
           _buildMemoryButton(
@@ -43,8 +50,10 @@ class MemoryBar extends StatelessWidget {
             btnColor: btnColor,
             textColor: hasMemory ? textColor : disabledTextColor,
             tooltip: 'Memory Clear',
+            height: barHeight,
+            fontSize: barFontSize,
           ),
-          const SizedBox(width: 6),
+          SizedBox(width: spacing),
           _buildMemoryButton(
             context,
             label: 'MR',
@@ -54,8 +63,10 @@ class MemoryBar extends StatelessWidget {
             textColor: hasMemory ? accentColor : disabledTextColor,
             badge: hasMemory ? 'M' : null,
             tooltip: 'Memory Recall',
+            height: barHeight,
+            fontSize: barFontSize,
           ),
-          const SizedBox(width: 6),
+          SizedBox(width: spacing),
           _buildMemoryButton(
             context,
             label: 'M+',
@@ -64,8 +75,10 @@ class MemoryBar extends StatelessWidget {
             btnColor: btnColor,
             textColor: textColor,
             tooltip: 'Memory Add',
+            height: barHeight,
+            fontSize: barFontSize,
           ),
-          const SizedBox(width: 6),
+          SizedBox(width: spacing),
           _buildMemoryButton(
             context,
             label: 'M−',
@@ -74,6 +87,8 @@ class MemoryBar extends StatelessWidget {
             btnColor: btnColor,
             textColor: textColor,
             tooltip: 'Memory Subtract',
+            height: barHeight,
+            fontSize: barFontSize,
           ),
         ],
       ),
@@ -89,6 +104,8 @@ class MemoryBar extends StatelessWidget {
     required Color textColor,
     String? badge,
     required String tooltip,
+    required double height,
+    required double fontSize,
   }) {
     return Expanded(
       child: Tooltip(
@@ -97,6 +114,7 @@ class MemoryBar extends StatelessWidget {
           color: btnColor,
           borderRadius: BorderRadius.circular(10),
           child: InkWell(
+            mouseCursor: isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
             borderRadius: BorderRadius.circular(10),
             onTap: isEnabled
                 ? () {
@@ -105,25 +123,28 @@ class MemoryBar extends StatelessWidget {
                   }
                 : null,
             child: Container(
-              height: 36,
+              height: height,
               alignment: Alignment.center,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: textColor,
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: fontSize,
+                        fontWeight: FontWeight.w600,
+                        color: textColor,
+                      ),
                     ),
                   ),
                   if (badge != null) ...[
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 3),
                     Container(
-                      width: 6,
-                      height: 6,
+                      width: 5,
+                      height: 5,
                       decoration: BoxDecoration(
                         color: textColor,
                         shape: BoxShape.circle,

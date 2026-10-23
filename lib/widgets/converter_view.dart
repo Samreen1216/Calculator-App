@@ -1,10 +1,13 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import '../controllers/calculator_controller.dart';
 import '../models/unit_converter.dart';
 import '../theme/app_theme.dart';
 import 'calculator_button.dart';
 
 class ConverterView extends StatefulWidget {
-  const ConverterView({super.key});
+  final CalculatorController? controller;
+  const ConverterView({super.key, this.controller});
 
   @override
   State<ConverterView> createState() => ConverterViewState();
@@ -16,12 +19,20 @@ class ConverterViewState extends State<ConverterView> {
   late ConversionUnit _toUnit;
   String _input = '1';
   String _output = '';
+  Timer? _debounceTimer;
 
   @override
   void initState() {
     super.initState();
     _initUnits();
-    _recalculate();
+    _recalculate(triggerSave: false);
+  }
+
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    _saveConversion();
+    super.dispose();
   }
 
   void _initUnits() {
@@ -30,7 +41,7 @@ class ConverterViewState extends State<ConverterView> {
     _toUnit = units.length > 1 ? units[1] : units[0];
   }
 
-  void _recalculate() {
+  void _recalculate({bool triggerSave = true}) {
     if (_input.isEmpty || _input == '−' || _input == '-') {
       _output = '0';
       return;
@@ -43,22 +54,86 @@ class ConverterViewState extends State<ConverterView> {
       _selectedCategory,
     );
     _output = UnitConverterService.format(converted);
+    if (triggerSave) {
+      _scheduleSave();
+    }
+  }
+
+  void _scheduleSave() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 800), () {
+      if (mounted) {
+        _saveConversion();
+      }
+    });
+  }
+
+  void saveCurrentConversion() {
+    _debounceTimer?.cancel();
+    _saveConversion();
+  }
+
+  void _saveConversion() {
+    if (_input.isEmpty || _input == '0' || _output.isEmpty || _output == '0') {
+      return;
+    }
+    widget.controller?.addConversionHistory(
+      category: _selectedCategory.label,
+      fromUnit: _fromUnit.symbol,
+      toUnit: _toUnit.symbol,
+      inputValue: _input,
+      outputValue: _output,
+    );
+  }
+
+  void restoreConversion({
+    required String categoryName,
+    required String fromUnitSymbol,
+    required String toUnitSymbol,
+    required String inputValue,
+  }) {
+    _debounceTimer?.cancel();
+    final cat = UnitCategory.values.firstWhere(
+      (c) => c.label.toLowerCase() == categoryName.toLowerCase(),
+      orElse: () => _selectedCategory,
+    );
+    final units = UnitConverterService.unitsByCategory[cat] ?? [];
+    final from = units.firstWhere(
+      (u) => u.symbol == fromUnitSymbol || u.name == fromUnitSymbol,
+      orElse: () => units.isNotEmpty ? units[0] : _fromUnit,
+    );
+    final to = units.firstWhere(
+      (u) => u.symbol == toUnitSymbol || u.name == toUnitSymbol,
+      orElse: () => units.length > 1 ? units[1] : from,
+    );
+
+    setState(() {
+      _selectedCategory = cat;
+      _fromUnit = from;
+      _toUnit = to;
+      _input = inputValue;
+      _recalculate(triggerSave: false);
+    });
   }
 
   void _onCategoryChanged(UnitCategory category) {
+    _debounceTimer?.cancel();
+    _saveConversion();
     setState(() {
       _selectedCategory = category;
       _initUnits();
-      _recalculate();
+      _recalculate(triggerSave: false);
     });
   }
 
   void _swapUnits() {
+    _debounceTimer?.cancel();
+    _saveConversion();
     setState(() {
       final temp = _fromUnit;
       _fromUnit = _toUnit;
       _toUnit = temp;
-      _recalculate();
+      _recalculate(triggerSave: false);
     });
   }
 
@@ -116,23 +191,28 @@ class ConverterViewState extends State<ConverterView> {
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
 
-    if (isLandscape) {
-      return _buildLandscapeLayout(
-        context,
-        cardBg,
-        primaryTextColor,
-        accentColor,
-        availableUnits,
-      );
-    } else {
-      return _buildPortraitLayout(
-        context,
-        cardBg,
-        primaryTextColor,
-        accentColor,
-        availableUnits,
-      );
-    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final useLandscapeLayout = constraints.maxWidth >= 560 || isLandscape;
+        if (useLandscapeLayout) {
+          return _buildLandscapeLayout(
+            context,
+            cardBg,
+            primaryTextColor,
+            accentColor,
+            availableUnits,
+          );
+        } else {
+          return _buildPortraitLayout(
+            context,
+            cardBg,
+            primaryTextColor,
+            accentColor,
+            availableUnits,
+          );
+        }
+      },
+    );
   }
 
   Widget _buildPortraitLayout(
@@ -142,17 +222,21 @@ class ConverterViewState extends State<ConverterView> {
     Color accentColor,
     List<ConversionUnit> availableUnits,
   ) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isShort = screenHeight < 600;
+    final gap = isShort ? 4.0 : 8.0;
+
     return Column(
       children: [
         _buildCategorySelector(primaryTextColor, cardBg, accentColor),
-        const SizedBox(height: 8),
+        SizedBox(height: gap),
         _buildConversionCard(
           cardBg,
           primaryTextColor,
           accentColor,
           availableUnits,
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: gap),
         Expanded(child: _buildKeypad()),
       ],
     );
@@ -236,8 +320,12 @@ class ConverterViewState extends State<ConverterView> {
     Color accentColor,
     List<ConversionUnit> availableUnits,
   ) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isShort = screenHeight < 600;
+    final cardPadding = isShort ? 8.0 : 12.0;
+
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(cardPadding),
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(16),
@@ -248,93 +336,119 @@ class ConverterViewState extends State<ConverterView> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              DropdownButton<ConversionUnit>(
-                value: _fromUnit,
-                underline: const SizedBox(),
-                dropdownColor: cardBg,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: primaryTextColor,
-                ),
-                items: availableUnits.map((u) {
-                  return DropdownMenuItem(
-                    value: u,
-                    child: Text('${u.name} (${u.symbol})'),
-                  );
-                }).toList(),
-                onChanged: (u) {
-                  if (u != null) {
-                    setState(() {
-                      _fromUnit = u;
-                      _recalculate();
-                    });
-                  }
-                },
-              ),
               Flexible(
-                child: Text(
-                  _input,
+                flex: 5,
+                child: DropdownButton<ConversionUnit>(
+                  value: _fromUnit,
+                  isDense: true,
+                  isExpanded: true,
+                  underline: const SizedBox(),
+                  dropdownColor: cardBg,
                   style: TextStyle(
-                    fontSize: 24,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: primaryTextColor,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  items: availableUnits.map((u) {
+                    return DropdownMenuItem(
+                      value: u,
+                      child: Text(
+                        '${u.name} (${u.symbol})',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (u) {
+                    if (u != null) {
+                      setState(() {
+                        _fromUnit = u;
+                        _recalculate();
+                      });
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                flex: 4,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    _input,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w600,
+                      color: primaryTextColor,
+                    ),
+                    maxLines: 1,
+                  ),
                 ),
               ),
             ],
           ),
           Row(
             children: [
-              const Expanded(child: Divider(height: 18)),
+              const Expanded(child: Divider(height: 14)),
               IconButton(
                 visualDensity: VisualDensity.compact,
                 icon: Icon(Icons.swap_vert_rounded, color: accentColor, size: 20),
                 onPressed: _swapUnits,
                 tooltip: 'Swap units',
               ),
-              const Expanded(child: Divider(height: 18)),
+              const Expanded(child: Divider(height: 14)),
             ],
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              DropdownButton<ConversionUnit>(
-                value: _toUnit,
-                underline: const SizedBox(),
-                dropdownColor: cardBg,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: primaryTextColor,
-                ),
-                items: availableUnits.map((u) {
-                  return DropdownMenuItem(
-                    value: u,
-                    child: Text('${u.name} (${u.symbol})'),
-                  );
-                }).toList(),
-                onChanged: (u) {
-                  if (u != null) {
-                    setState(() {
-                      _toUnit = u;
-                      _recalculate();
-                    });
-                  }
-                },
-              ),
               Flexible(
-                child: Text(
-                  _output,
+                flex: 5,
+                child: DropdownButton<ConversionUnit>(
+                  value: _toUnit,
+                  isDense: true,
+                  isExpanded: true,
+                  underline: const SizedBox(),
+                  dropdownColor: cardBg,
                   style: TextStyle(
-                    fontSize: 24,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: accentColor,
+                    color: primaryTextColor,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  items: availableUnits.map((u) {
+                    return DropdownMenuItem(
+                      value: u,
+                      child: Text(
+                        '${u.name} (${u.symbol})',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (u) {
+                    if (u != null) {
+                      setState(() {
+                        _toUnit = u;
+                        _recalculate();
+                      });
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                flex: 4,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    _output,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w600,
+                      color: accentColor,
+                    ),
+                    maxLines: 1,
+                  ),
                 ),
               ),
             ],

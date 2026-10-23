@@ -36,7 +36,8 @@ class CalculatorButton extends StatelessWidget {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     final shortSide = screenWidth < screenHeight ? screenWidth : screenHeight;
-    final scaleFactor = (shortSide / 375).clamp(0.7, 1.4);
+    final isShort = screenHeight < 500;
+    final scaleFactor = isShort ? 0.75 : (shortSide / 375).clamp(0.7, 1.3);
 
     Color bgColor;
     Color fgColor;
@@ -79,8 +80,8 @@ class CalculatorButton extends StatelessWidget {
         break;
     }
 
-    final borderRadius = (16 * scaleFactor).clamp(10.0, 20.0);
-    final padding = (4 * scaleFactor).clamp(2.0, 6.0);
+    final borderRadius = (16 * scaleFactor).clamp(8.0, 18.0);
+    final padding = isShort ? 2.0 : (4 * scaleFactor).clamp(2.0, 6.0);
     final effectiveSemantics = semanticsLabel ?? _deriveSemanticsLabel(label);
 
     return Expanded(
@@ -94,6 +95,7 @@ class CalculatorButton extends StatelessWidget {
             color: bgColor,
             borderRadius: BorderRadius.circular(borderRadius),
             child: InkWell(
+              mouseCursor: SystemMouseCursors.click,
               borderRadius: BorderRadius.circular(borderRadius),
               onTap: () {
                 HapticFeedback.lightImpact();
@@ -106,9 +108,6 @@ class CalculatorButton extends StatelessWidget {
                     }
                   : null,
               child: Container(
-                constraints: BoxConstraints(
-                  minHeight: (48 * scaleFactor).clamp(36.0, 64.0),
-                ),
                 alignment: Alignment.center,
                 child: FittedBox(
                   fit: BoxFit.scaleDown,

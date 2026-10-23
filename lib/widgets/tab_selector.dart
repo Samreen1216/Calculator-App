@@ -28,7 +28,9 @@ class TabSelector extends StatelessWidget {
     final unselectedText = calcTheme?.secondaryTextColor ??
         (isDark ? const Color(0xFF98989D) : const Color(0xFF778196));
 
-    final vPadding = isLandscape ? 6.0 : 8.0;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isShort = screenHeight < 500;
+    final vPadding = isShort ? 4.0 : (isLandscape ? 6.0 : 8.0);
 
     return Container(
       padding: const EdgeInsets.all(3),
@@ -81,32 +83,39 @@ class TabSelector extends StatelessWidget {
     required VoidCallback onTap,
   }) {
     return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeInOut,
-          padding: EdgeInsets.symmetric(vertical: verticalPadding),
-          decoration: BoxDecoration(
-            color: isSelected ? selectedBg : Colors.transparent,
-            borderRadius: BorderRadius.circular(11),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-              color: isSelected ? selectedText : unselectedText,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: 2),
+            decoration: BoxDecoration(
+              color: isSelected ? selectedBg : Colors.transparent,
+              borderRadius: BorderRadius.circular(11),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.06),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  color: isSelected ? selectedText : unselectedText,
+                ),
+              ),
             ),
           ),
         ),

@@ -45,6 +45,16 @@ class HistoryService {
     await _persist();
   }
 
+  /// Inserts a calculation at [index] and persists the update.
+  Future<void> insertAt(int index, Calculation calculation) async {
+    final targetIndex = index.clamp(0, _history.length);
+    _history.insert(targetIndex, calculation);
+    if (_history.length > _maxHistory) {
+      _history.removeLast();
+    }
+    await _persist();
+  }
+
   /// Removes a single calculation at [index] and persists the update.
   Future<void> removeAt(int index) async {
     if (index >= 0 && index < _history.length) {

@@ -35,11 +35,16 @@ class ScientificKeypad extends StatelessWidget {
   Widget build(BuildContext context) {
     final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
 
-    if (isLandscape) {
-      return _buildLandscapeLayout(context);
-    } else {
-      return _buildPortraitLayout(context);
-    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final useLandscape = constraints.maxWidth >= 560 || isLandscape;
+        if (useLandscape) {
+          return _buildLandscapeLayout(context);
+        } else {
+          return _buildPortraitLayout(context);
+        }
+      },
+    );
   }
 
   /// 8-row layout for portrait orientation:

@@ -504,11 +504,63 @@ class CalculatorController extends ChangeNotifier {
   }
 
   void selectHistory(Calculation calc) {
-    _expression = calc.expression;
-    _result = calc.result;
-    _hasResult = true;
-    _justEvaluated = true;
-    _openParenCount = 0;
+    if (calc.isConversion) {
+      if (_mode != CalculatorMode.converter) {
+        _mode = CalculatorMode.converter;
+      }
+      notifyListeners();
+    } else {
+      if (_mode == CalculatorMode.converter) {
+        _mode = CalculatorMode.standard;
+      }
+      _expression = calc.expression;
+      _result = calc.result;
+      _hasResult = true;
+      _justEvaluated = true;
+      _openParenCount = 0;
+      notifyListeners();
+    }
+  }
+
+  void addConversionHistory({
+    required String category,
+    required String fromUnit,
+    required String toUnit,
+    required String inputValue,
+    required String outputValue,
+  }) {
+    if (inputValue.isEmpty ||
+        inputValue == '0' ||
+        outputValue.isEmpty ||
+        outputValue == '0') {
+      return;
+    }
+
+    // Deduplicate identical consecutive conversions
+    if (history.isNotEmpty) {
+      final latest = history.first;
+      if (latest.isConversion &&
+          latest.category == category &&
+          latest.fromUnit == fromUnit &&
+          latest.toUnit == toUnit &&
+          latest.inputValue == inputValue) {
+        return;
+      }
+    }
+
+    final expression = '$inputValue $fromUnit';
+    final result = '$outputValue $toUnit';
+    historyService.addCalculation(Calculation(
+      expression: expression,
+      result: result,
+      timestamp: DateTime.now(),
+      category: category,
+      fromUnit: fromUnit,
+      toUnit: toUnit,
+      inputValue: inputValue,
+      outputValue: outputValue,
+      isConversion: true,
+    ));
     notifyListeners();
   }
 
@@ -519,6 +571,11 @@ class CalculatorController extends ChangeNotifier {
 
   Future<void> removeHistoryItem(int index) async {
     await historyService.removeAt(index);
+    notifyListeners();
+  }
+
+  Future<void> restoreHistoryItem(int index, Calculation calc) async {
+    await historyService.insertAt(index, calc);
     notifyListeners();
   }
 

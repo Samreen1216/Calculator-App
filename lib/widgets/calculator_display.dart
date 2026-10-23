@@ -32,19 +32,20 @@ class CalculatorDisplay extends StatelessWidget {
     final screenHeight = MediaQuery.of(context).size.height;
     final shortSide = screenWidth < screenHeight ? screenWidth : screenHeight;
     final isLandscape = screenWidth > screenHeight;
-    final scaleFactor = (shortSide / 375).clamp(0.7, 1.6);
+    final isShort = screenHeight < 550;
+    final scaleFactor = (shortSide / 375).clamp(0.7, 1.4);
 
-    final expressionBase = isLandscape ? 18.0 : 22.0;
-    final resultBase = isLandscape ? 36.0 : 48.0;
-    final hPadding = (24 * scaleFactor).clamp(12.0, 32.0);
-    final vPadding = isLandscape ? 8.0 : (20 * scaleFactor).clamp(10.0, 28.0);
+    final expressionBase = isShort ? 15.0 : (isLandscape ? 18.0 : 22.0);
+    final resultBase = isShort ? 30.0 : (isLandscape ? 36.0 : 46.0);
+    final hPadding = (20 * scaleFactor).clamp(12.0, 28.0);
+    final vPadding = isShort ? 6.0 : (isLandscape ? 8.0 : (16 * scaleFactor).clamp(8.0, 22.0));
 
     return Container(
       width: double.infinity,
       padding: EdgeInsets.symmetric(horizontal: hPadding, vertical: vPadding),
       decoration: BoxDecoration(
         color: displayBg,
-        borderRadius: BorderRadius.circular((20 * scaleFactor).clamp(12.0, 24.0)),
+        borderRadius: BorderRadius.circular((18 * scaleFactor).clamp(10.0, 22.0)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -53,6 +54,7 @@ class CalculatorDisplay extends StatelessWidget {
           // Expression display
           GestureDetector(
             onLongPress: () => _showClipboardMenu(context, isExpression: true),
+            onSecondaryTap: () => _showClipboardMenu(context, isExpression: true),
             child: SizedBox(
               width: double.infinity,
               child: SingleChildScrollView(
@@ -67,17 +69,18 @@ class CalculatorDisplay extends StatelessWidget {
                     ),
                     fontWeight: FontWeight.w400,
                     color: hasResult ? secondaryColor : primaryColor,
-                    height: 1.3,
+                    height: 1.25,
                   ),
                   maxLines: 1,
                 ),
               ),
             ),
           ),
-          SizedBox(height: isLandscape ? 4 : 8),
+          SizedBox(height: isShort ? 2 : (isLandscape ? 4 : 6)),
           // Result display
           GestureDetector(
             onLongPress: () => _showClipboardMenu(context, isExpression: false),
+            onSecondaryTap: () => _showClipboardMenu(context, isExpression: false),
             child: SizedBox(
               width: double.infinity,
               child: SingleChildScrollView(
@@ -92,7 +95,7 @@ class CalculatorDisplay extends StatelessWidget {
                     ),
                     fontWeight: FontWeight.w600,
                     color: hasResult ? primaryColor : secondaryColor,
-                    height: 1.2,
+                    height: 1.15,
                   ),
                   maxLines: 1,
                 ),
